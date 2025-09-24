@@ -17,6 +17,10 @@ class GAED_StoreaBill_Integration {
         // Hook into StoreaBill initialization
         add_action( 'init', array( __CLASS__, 'register_block_assets' ), 15 );
         add_action( 'init', array( __CLASS__, 'register_blocks' ), 20 );
+
+        // Allow AED block inside StoreaBill editor
+        add_filter( 'storeabill_document_template_editor_available_blocks', array( __CLASS__, 'allow_aed_block' ), 10, 3 );
+        add_filter( 'allowed_block_types_all', array( __CLASS__, 'allow_block_type_in_editor' ), 20, 2 );
         add_filter( 'storeabill_document_template_editor_asset_whitelist_paths', array( __CLASS__, 'whitelist_asset_paths' ) );
 
         // Ensure block assets load within StoreaBill editor context
@@ -51,7 +55,7 @@ class GAED_StoreaBill_Integration {
         wp_register_script(
             'gaed-blocks',
             GAED_PLUGIN_URL . 'assets/js/blocks.js',
-            array( 'wp-blocks', 'wp-element', 'wp-compose', 'wp-hooks', 'wp-i18n', 'wp-dom-ready', 'wp-block-editor', 'sab-item-total-row' ),
+            array( 'wp-blocks', 'wp-element', 'wp-components', 'wp-i18n', 'wp-block-editor' ),
             GAED_VERSION,
             true
         );
@@ -87,7 +91,53 @@ class GAED_StoreaBill_Integration {
             return;
         }
 
-        GAED_AED_Total_Block::init();
+        // Register the AED total block
+        $aed_total_block = new GAED_AED_Total_Block();
+
+        register_block_type(
+            'gaed/aed-total-row',
+            array(
+                'render_callback' => array( $aed_total_block, 'render' ),
+                'attributes'      => $aed_total_block->get_attributes(),
+                'category'        => 'storeabill',
+                'supports'        => array(),
+                'editor_script'   => 'gaed-blocks',
+                'editor_style'    => 'gaed-blocks-editor',
+                'style'           => 'gaed-blocks-frontend',
+            )
+        );
+    }
+
+    /**
+     * Add AED blocks to available blocks in StoreaBill editor
+     *
+     * @param array $blocks Available blocks
+     * @return array Modified blocks array
+     */
+    public static function allow_aed_block( $blocks, $document_type, $template ) {
+        if ( ! in_array( 'gaed/aed-total-row', $blocks, true ) ) {
+            $blocks[] = 'gaed/aed-total-row';
+        }
+
+        return $blocks;
+    }
+
+    /**
+     * Ensure the AED block is allowed within the block editor.
+     *
+     * @param array|bool               $allowed_block_types Existing allowed block types.
+     * @param \WP_Block_Editor_Context $context             Editor context.
+     *
+     * @return array|bool
+     */
+    public static function allow_block_type_in_editor( $allowed_block_types, $context ) {
+        if ( is_array( $allowed_block_types ) && isset( $context->post ) && 'document_template' === $context->post->post_type ) {
+            if ( ! in_array( 'gaed/aed-total-row', $allowed_block_types, true ) ) {
+                $allowed_block_types[] = 'gaed/aed-total-row';
+            }
+        }
+
+        return $allowed_block_types;
     }
 
     /**
@@ -135,17 +185,15 @@ class GAED_StoreaBill_Integration {
                 $new_inner_blocks[] = $inner_block;
 
                 // Check if this is a total row block
-                if ( isset( $inner_block['blockName'] ) && 'storeabill/item-total-row' === $inner_block['blockName'] ) {
+                if ( isset( $inner_block['blockName'] ) && $inner_block['blockName'] === 'storeabill/item-total-row' ) {
                     // Add corresponding AED total block
                     $aed_block = array(
-                        'blockName'    => 'storeabill/item-total-row',
+                        'blockName'    => 'gaed/aed-total-row',
                         'attrs'        => array(
                             'totalType'   => isset( $inner_block['attrs']['totalType'] ) ? $inner_block['attrs']['totalType'] : 'total',
-                            'heading'     => false,
+                            'heading'     => false, // Will auto-generate AED heading
                             'hideIfEmpty' => true,
                             'borders'     => array(),
-                            'gaedIsAed'   => true,
-                            'content'     => '{total_aed}',
                         ),
                         'innerBlocks'  => array(),
                         'innerHTML'    => '',

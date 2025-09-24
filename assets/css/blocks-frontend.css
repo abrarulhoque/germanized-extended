@@ -1,25 +1,4 @@
 /**
- * AED Total Blocks - Frontend Styles
- *
- * Minimal styling to ensure AED totals look identical to StoreaBill totals
+ * AED totals inherit StoreaBill styling.
+ * This file is intentionally minimal.
  */
-
-/* AED blocks inherit all StoreaBill styling exactly */
-
-/* Attribution styling only */
-.sab-aed-attribution td {
-    font-size: 8px !important;
-    color: #666 !important;
-    text-align: center !important;
-    padding-top: 5px !important;
-    border-top: 1px solid #eee !important;
-    font-style: italic;
-}
-
-/* Print styles */
-@media print {
-    .sab-aed-attribution td {
-        font-size: 6px !important;
-        color: #333 !important;
-    }
-}

@@ -1,89 +1,137 @@
-(function( wp ) {
+/**
+ * AED Total Block for StoreaBill Editor
+ */
+(function() {
     'use strict';
 
-    if ( ! wp || ! wp.blocks || ! wp.hooks || ! wp.domReady ) {
-        return;
-    }
+    const { registerBlockType } = wp.blocks;
+    const { InspectorControls } = wp.blockEditor;
+    const { PanelBody, SelectControl, TextControl, ToggleControl } = wp.components;
+    const { __ } = wp.i18n;
+    const { createElement: el } = wp.element;
 
-    var registerBlockVariation = wp.blocks.registerBlockVariation;
-    var getBlockType = wp.blocks.getBlockType;
-    var getBlockVariations = wp.blocks.getBlockVariations || wp.blocks.__experimentalGetBlockVariations;
-    var addFilter = wp.hooks.addFilter;
-    var __ = wp.i18n.__;
-    var Fragment = wp.element.Fragment;
-    var createElement = wp.element.createElement;
-    var createHigherOrderComponent = wp.compose && wp.compose.createHigherOrderComponent;
+    // Register AED Total Row Block
+    registerBlockType('gaed/aed-total-row', {
+        title: __('AED Total Row', 'germanized-aed-totals'),
+        description: __('Display invoice totals converted to AED currency', 'germanized-aed-totals'),
+        icon: 'money-alt',
+        category: 'storeabill',
+        keywords: ['aed', 'currency', 'total', 'conversion'],
 
-    var VARIATION_NAME = 'gaed-aed-total-row';
-
-    addFilter(
-        'blocks.registerBlockType',
-        'gaed/aed-total-row/attributes',
-        function( settings, name ) {
-            if ( name !== 'storeabill/item-total-row' ) {
-                return settings;
+        attributes: {
+            totalType: {
+                type: 'string',
+                default: 'total'
+            },
+            heading: {
+                type: 'string',
+                default: ''
+            },
+            content: {
+                type: 'string',
+                default: '{total_aed}'
+            },
+            hideIfEmpty: {
+                type: 'boolean',
+                default: false
+            },
+            borders: {
+                type: 'array',
+                default: []
             }
+        },
 
-            settings.attributes = Object.assign( {}, settings.attributes, {
-                gaedIsAed: {
-                    type: 'boolean',
-                    default: false,
-                },
-            } );
+        edit: function(props) {
+            const { attributes, setAttributes } = props;
+            const { totalType, heading, content, hideIfEmpty, borders } = attributes;
 
-            return settings;
-        }
-    );
+            const totalTypeOptions = [
+                { label: __('Total', 'germanized-aed-totals'), value: 'total' },
+                { label: __('Subtotal', 'germanized-aed-totals'), value: 'subtotal' },
+                { label: __('Tax', 'germanized-aed-totals'), value: 'taxes' },
+                { label: __('Shipping', 'germanized-aed-totals'), value: 'shipping' },
+                { label: __('Fee', 'germanized-aed-totals'), value: 'fee' },
+                { label: __('Discount', 'germanized-aed-totals'), value: 'discount' }
+            ];
 
-    wp.domReady( function() {
-        var baseBlock = getBlockType( 'storeabill/item-total-row' );
+            const borderOptions = [
+                { label: __('Top', 'germanized-aed-totals'), value: 'top' },
+                { label: __('Bottom', 'germanized-aed-totals'), value: 'bottom' },
+                { label: __('Left', 'germanized-aed-totals'), value: 'left' },
+                { label: __('Right', 'germanized-aed-totals'), value: 'right' }
+            ];
 
-        if ( ! baseBlock || ! registerBlockVariation ) {
-            return;
-        }
-
-        var existingVariations = getBlockVariations ? getBlockVariations( 'storeabill/item-total-row', 'block' ) : [];
-
-        var alreadyRegistered = Array.isArray( existingVariations ) && existingVariations.some( function( variation ) {
-            return variation && variation.name === VARIATION_NAME;
-        } );
-
-        if ( ! alreadyRegistered ) {
-            registerBlockVariation( 'storeabill/item-total-row', {
-                name: VARIATION_NAME,
-                title: __( 'Item Total Row (AED)', 'germanized-aed-totals' ),
-                description: __( 'Displays a StoreaBill item total converted to AED.', 'germanized-aed-totals' ),
-                icon: baseBlock.icon || 'money-alt',
-                attributes: {
-                    gaedIsAed: true,
-                    content: '{total_aed}',
-                    heading: __( 'Total (AED)', 'germanized-aed-totals' ),
-                },
-                scope: [ 'block', 'inserter' ],
-            } );
-        }
-    } );
-
-    if ( createHigherOrderComponent ) {
-        var withAedPreviewNote = createHigherOrderComponent( function( BlockEdit ) {
-            return function( props ) {
-                if ( props.name !== 'storeabill/item-total-row' || ! props.attributes.gaedIsAed ) {
-                    return createElement( BlockEdit, props );
-                }
-
-                return createElement(
-                    Fragment,
-                    null,
-                    createElement( BlockEdit, props ),
-                    createElement(
-                        'div',
-                        { className: 'gaed-aed-total-note' },
-                        __( 'Preview – actual amounts will be converted from EUR totals.', 'germanized-aed-totals' )
+            return [
+                el(InspectorControls, {},
+                    el(PanelBody, {
+                        title: __('AED Total Settings', 'germanized-aed-totals'),
+                        initialOpen: true
+                    },
+                        el(SelectControl, {
+                            label: __('Total Type', 'germanized-aed-totals'),
+                            value: totalType,
+                            options: totalTypeOptions,
+                            onChange: function(value) {
+                                setAttributes({ totalType: value });
+                            }
+                        }),
+                        el(TextControl, {
+                            label: __('Custom Heading', 'germanized-aed-totals'),
+                            value: heading,
+                            placeholder: __('Leave empty for auto-generated heading', 'germanized-aed-totals'),
+                            onChange: function(value) {
+                                setAttributes({ heading: value });
+                            }
+                        }),
+                        el(TextControl, {
+                            label: __('Content Template', 'germanized-aed-totals'),
+                            value: content,
+                            help: __('Use {total_aed} to display the AED amount', 'germanized-aed-totals'),
+                            onChange: function(value) {
+                                setAttributes({ content: value });
+                            }
+                        }),
+                        el(ToggleControl, {
+                            label: __('Hide if Empty', 'germanized-aed-totals'),
+                            checked: hideIfEmpty,
+                            onChange: function(value) {
+                                setAttributes({ hideIfEmpty: value });
+                            }
+                        })
                     )
-                );
-            };
-        }, 'withGAEDAedPreviewNote' );
+                ),
+                el('div', {
+                    className: 'gaed-total-block-preview',
+                    style: {
+                        border: '1px dashed #ccc',
+                        padding: '15px',
+                        margin: '10px 0',
+                        backgroundColor: '#f9f9f9'
+                    }
+                },
+                    el('table', { style: { width: '100%' } },
+                        el('tbody', {},
+                            el('tr', {},
+                                el('td', { style: { fontWeight: 'bold' } },
+                                    heading || (totalType.charAt(0).toUpperCase() + totalType.slice(1) + ' (AED)')
+                                ),
+                                el('td', { style: { textAlign: 'right' } },
+                                    content.replace('{total_aed}', 'XXX.XX AED').replace('{total}', 'XXX.XX AED')
+                                )
+                            )
+                        )
+                    ),
+                    el('p', { style: { fontSize: '12px', color: '#666', margin: '5px 0 0 0' } },
+                        __('Preview - actual amounts will be calculated from EUR totals', 'germanized-aed-totals')
+                    )
+                )
+            ];
+        },
 
-        addFilter( 'editor.BlockEdit', 'gaed/aed-total-row/preview-note', withAedPreviewNote );
-    }
-})( window.wp );
+        save: function() {
+            // Dynamic block - rendered on server side
+            return null;
+        }
+    });
+
+})();
