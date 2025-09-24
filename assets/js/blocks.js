@@ -1,290 +1,50 @@
 /**
  * AED Total Block for StoreaBill Editor
- * Based on Germanized's item-total-row block
+ * Simplified version to avoid dependency issues
  */
 (function() {
     'use strict';
 
     const { registerBlockType } = wp.blocks;
-    const { 
-        AlignmentToolbar,
-        BlockControls,
-        InspectorControls,
-        RichText,
-        RichTextToolbarButton,
-        FontSizePicker
-    } = wp.blockEditor;
-    const { 
-        PanelBody, 
-        RangeControl, 
-        Slot, 
-        ToggleControl, 
-        ToolbarButton,
-        Toolbar,
-        DropdownMenu,
-        ToolbarGroup
-    } = wp.components;
-    const { __, _x } = wp.i18n;
+    const { InspectorControls, RichText } = wp.blockEditor;
+    const { PanelBody, SelectControl, TextControl, ToggleControl } = wp.components;
+    const { __ } = wp.i18n;
     const { createElement: el } = wp.element;
-    const { compose } = wp.compose;
-    const { withSelect } = wp.data;
 
-    // Mock StoreaBill utilities for our AED block
-    const ITEM_TOTAL_TYPES = [
-        { type: 'total', title: __('Total', 'germanized-aed-totals'), icon: 'money-alt' },
-        { type: 'subtotal', title: __('Subtotal', 'germanized-aed-totals'), icon: 'money-alt' },
-        { type: 'taxes', title: __('Tax', 'germanized-aed-totals'), icon: 'money-alt' },
-        { type: 'shipping', title: __('Shipping', 'germanized-aed-totals'), icon: 'money-alt' },
-        { type: 'fee', title: __('Fee', 'germanized-aed-totals'), icon: 'money-alt' },
-        { type: 'fees', title: __('Fees', 'germanized-aed-totals'), icon: 'money-alt' },
-        { type: 'discount', title: __('Discount', 'germanized-aed-totals'), icon: 'money-alt' },
-        { type: 'voucher', title: __('Voucher', 'germanized-aed-totals'), icon: 'money-alt' }
-    ];
-
-    const FORMAT_TYPES = ['core/bold', 'core/italic'];
-
-    function getPreviewTotal(type) {
-        const previews = {
-            'total': '30.00€',
-            'subtotal': '25.21€', 
-            'taxes': '5.43€',
-            'shipping': '3.36€',
-            'fee': '2.00€',
-            'fees': '2.00€',
-            'discount': '-3.36€',
-            'voucher': '-4.00€'
-        };
-        return previews[type] || '0.00€';
-    }
-
-    function getItemTotalTypeDefaultTitle(type) {
-        const titles = {
-            'total': __('Total', 'germanized-aed-totals'),
-            'subtotal': __('Subtotal', 'germanized-aed-totals'),
-            'taxes': __('19 % Tax', 'germanized-aed-totals'),
-            'shipping': __('Shipping', 'germanized-aed-totals'),
-            'fee': __('Fee', 'germanized-aed-totals'),
-            'fees': __('Fee: %s', 'germanized-aed-totals'),
-            'discount': __('Discount: %s', 'germanized-aed-totals'),
-            'voucher': __('Voucher: %s', 'germanized-aed-totals')
-        };
-        return titles[type] || type;
-    }
-
-    function getItemTotalTypeTitle(type) {
-        return getItemTotalTypeDefaultTitle(type);
-    }
-
-    function getBorderClasses(borders) {
-        if (!borders || !Array.isArray(borders)) return [];
-        return borders.map(border => `has-border-${border}`);
-    }
-
-    function getFontSizeStyle(fontSize) {
-        if (!fontSize || !fontSize.size) return undefined;
-        return fontSize.size;
-    }
-
-    function convertFontSizeForPicker(size) {
-        return size;
-    }
-
-    // Border Select Component (simplified version)
-    function BorderSelect({ label, currentBorders, onChange, borders, isMultiSelect }) {
-        const borderOptions = borders.map(border => ({
-            label: border.charAt(0).toUpperCase() + border.slice(1),
-            value: border
-        }));
-
-        return el(DropdownMenu, {
-            icon: 'admin-generic',
-            label: label,
-            controls: borderOptions.map(option => ({
-                title: option.label,
-                isActive: currentBorders.includes(option.value),
-                onClick: () => {
-                    let newBorders;
-                    if (currentBorders.includes(option.value)) {
-                        newBorders = currentBorders.filter(b => b !== option.value);
-                    } else {
-                        newBorders = isMultiSelect ? [...currentBorders, option.value] : [option.value];
-                    }
-                    onChange(newBorders);
-                }
-            }))
-        });
-    }
-
-    // Type Select Component
-    function TypeSelect({ value, onChange, types = ITEM_TOTAL_TYPES, label, isCollapsed = true }) {
-        const activeType = types.find(control => control.type === value);
-
-        return el(ToolbarGroup, {},
-            el(DropdownMenu, {
-                icon: 'admin-settings',
-                label: label,
-                controls: types.map(control => {
-                    const { type } = control;
-                    const isActive = value === type;
-
-                    return {
-                        ...control,
-                        icon: control.icon || 'arrow-right-alt2',
-                        isActive: isActive,
-                        role: isCollapsed ? 'menuitemradio' : undefined,
-                        onClick: () => onChange(type)
-                    };
-                })
-            })
-        );
-    }
-
-    // Color utilities (simplified)
-    function useColors(colorSettings, deps) {
-        return {
-            InspectorControlsColorPanel: el('div'), // Placeholder
-            BorderColor: ({ children }) => children,
-            TextColor: ({ children }) => children
-        };
-    }
-
-    function TotalRowEdit({
-        attributes,
-        setAttributes,
-        className,
-        fontSize = { size: undefined },
-        setFontSize = () => {},
-        borderColor = { color: undefined, class: undefined },
-        backgroundColor = { color: undefined, class: undefined },
-        textColor = { color: undefined, class: undefined }
-    }) {
-
-        const { heading, totalType, borders, content, hideIfEmpty } = attributes;
-
-        let total = getPreviewTotal(totalType);
-        const title = getItemTotalTypeTitle(totalType);
-        const defaultContent = `<span class="item-total-inner-content placeholder-content sab-tooltip" data-tooltip="${title}" contenteditable="false"><span class="editor-placeholder"></span>{total}</span>`;
-        let innerHeading = heading ? heading : getItemTotalTypeDefaultTitle(totalType);
-
-        // Convert preview EUR to AED for display
-        const aedPreview = total.replace('€', 'AED');
-
-        const classes = [
-            className,
-            'item-total-row',
-            ...getBorderClasses(borders)
-        ].filter(Boolean).join(' ') + (borderColor.color ? ' has-border-color' : '') + (borderColor.class ? ` ${borderColor.class}` : '');
-
-        const {
-            InspectorControlsColorPanel,
-            BorderColor,
-            TextColor
-        } = useColors(
-            [
-                { name: 'borderColor', className: 'has-border-color' },
-                { name: 'textColor', property: 'color' },
-            ],
-            [fontSize.size]
-        );
-
-        const itemTotalClasses = 'item-total-row-data';
-
-        const blockStyle = {
-            borderColor: borderColor.color,
-            fontSize: getFontSizeStyle(fontSize),
-        };
-
-        return [
-            el(BlockControls, { key: 'controls' },
-                el(TypeSelect, {
-                    label: _x('Change type', 'storeabill-core', 'germanized-aed-totals'),
-                    value: totalType,
-                    onChange: (newType) => setAttributes({ totalType: newType })
-                }),
-                el(BorderSelect, {
-                    label: _x('Adjust border', 'storeabill-core', 'germanized-aed-totals'),
-                    currentBorders: borders,
-                    isMultiSelect: true,
-                    borders: ['top', 'bottom'],
-                    onChange: (newBorder) => setAttributes({ borders: newBorder })
-                })
-            ),
-            el(InspectorControls, { key: 'inspector' },
-                el(PanelBody, {},
-                    el(ToggleControl, {
-                        label: _x('Hide if amount equals zero', 'storeabill-core', 'germanized-aed-totals'),
-                        checked: hideIfEmpty,
-                        onChange: () => setAttributes({ hideIfEmpty: !hideIfEmpty })
-                    }),
-                    el(FontSizePicker, {
-                        value: convertFontSizeForPicker(fontSize.size),
-                        onChange: setFontSize
-                    })
-                )
-            ),
-            InspectorControlsColorPanel,
-            el('div', {
-                key: 'edit',
-                className: classes,
-                style: blockStyle
-            },
-                el(TextColor, {},
-                    el('div', { className: 'item-total-row-heading' },
-                        el(RichText, {
-                            tagName: 'span',
-                            placeholder: _x('Insert heading', 'storeabill-core', 'germanized-aed-totals'),
-                            value: innerHeading,
-                            onChange: (value) => setAttributes({ heading: value }),
-                            allowedFormats: FORMAT_TYPES,
-                            className: 'item-total-heading placeholder-wrapper'
-                        })
-                    ),
-                    el('div', { className: itemTotalClasses },
-                        el(RichText, {
-                            tagName: 'span',
-                            value: content.replace('{total}', aedPreview),
-                            placeholder: defaultContent.replace('{total}', aedPreview),
-                            className: 'item-total-content placeholder-wrapper',
-                            onChange: (value) => {
-                                // Replace AED preview back to {total} placeholder
-                                const cleanValue = value.replace(aedPreview, '{total}');
-                                setAttributes({ content: cleanValue });
-                            },
-                            allowedFormats: FORMAT_TYPES
-                        })
-                    )
-                )
-            )
-        ];
-    }
-
-    // Register AED Total Row Block with enhanced functionality
+    // Register AED Total Row Block
     registerBlockType('gaed/aed-total-row', {
-        title: _x('AED Total Row', 'storeabill-core', 'germanized-aed-totals'),
-        description: _x('Inserts an item total row converted to AED currency', 'storeabill-core', 'germanized-aed-totals'),
-        category: 'storeabill',
+        title: __('AED Total Row', 'germanized-aed-totals'),
+        description: __('Display invoice totals converted to AED currency', 'germanized-aed-totals'),
         icon: 'money-alt',
+        category: 'storeabill',
         parent: ['storeabill/item-totals'],
         keywords: ['aed', 'currency', 'total', 'conversion'],
-        example: {},
 
         attributes: {
+            totalType: {
+                type: 'string',
+                default: 'total'
+            },
+            heading: {
+                type: 'string',
+                default: ''
+            },
             content: {
                 type: 'string',
                 default: '{total}'
             },
-            totalType: {
-                type: 'string',
-                default: 'total'
+            hideIfEmpty: {
+                type: 'boolean',
+                default: false
             },
             borders: {
                 type: 'array',
                 default: []
             },
-            customBorderColor: {
+            borderColor: {
                 type: 'string'
             },
-            borderColor: {
+            customBorderColor: {
                 type: 'string'
             },
             backgroundColor: {
@@ -293,10 +53,10 @@
             customBackgroundColor: {
                 type: 'string'
             },
-            customTextColor: {
+            textColor: {
                 type: 'string'
             },
-            textColor: {
+            customTextColor: {
                 type: 'string'
             },
             fontSize: {
@@ -304,18 +64,183 @@
             },
             customFontSize: {
                 type: 'string'
-            },
-            heading: {
-                type: 'string',
-                default: ''
-            },
-            hideIfEmpty: {
-                type: 'boolean',
-                default: false
             }
         },
 
-        edit: TotalRowEdit,
+        edit: function(props) {
+            const { attributes, setAttributes, className } = props;
+            const { totalType, heading, content, hideIfEmpty, borders } = attributes;
+
+            const totalTypeOptions = [
+                { label: __('Total', 'germanized-aed-totals'), value: 'total' },
+                { label: __('Subtotal', 'germanized-aed-totals'), value: 'subtotal' },
+                { label: __('Tax', 'germanized-aed-totals'), value: 'taxes' },
+                { label: __('Shipping', 'germanized-aed-totals'), value: 'shipping' },
+                { label: __('Fee', 'germanized-aed-totals'), value: 'fee' },
+                { label: __('Fees', 'germanized-aed-totals'), value: 'fees' },
+                { label: __('Discount', 'germanized-aed-totals'), value: 'discount' },
+                { label: __('Voucher', 'germanized-aed-totals'), value: 'voucher' }
+            ];
+
+            const borderOptions = [
+                { label: __('Top', 'germanized-aed-totals'), value: 'top' },
+                { label: __('Bottom', 'germanized-aed-totals'), value: 'bottom' }
+            ];
+
+            // Preview values
+            const previewValues = {
+                'total': '147.00 AED',
+                'subtotal': '135.21 AED',
+                'taxes': '25.83 AED',
+                'shipping': '12.36 AED',
+                'fee': '7.36 AED',
+                'fees': '7.36 AED',
+                'discount': '-12.36 AED',
+                'voucher': '-14.72 AED'
+            };
+
+            const previewTotal = previewValues[totalType] || '0.00 AED';
+            const displayHeading = heading || (totalType.charAt(0).toUpperCase() + totalType.slice(1) + ' (AED)');
+
+            return [
+                el(InspectorControls, { key: 'inspector' },
+                    el(PanelBody, {
+                        title: __('AED Total Settings', 'germanized-aed-totals'),
+                        initialOpen: true
+                    },
+                        el(SelectControl, {
+                            label: __('Total Type', 'germanized-aed-totals'),
+                            value: totalType,
+                            options: totalTypeOptions,
+                            onChange: function(value) {
+                                setAttributes({ totalType: value });
+                            }
+                        }),
+                        el(TextControl, {
+                            label: __('Custom Heading', 'germanized-aed-totals'),
+                            value: heading,
+                            placeholder: __('Leave empty for auto-generated heading', 'germanized-aed-totals'),
+                            onChange: function(value) {
+                                setAttributes({ heading: value });
+                            }
+                        }),
+                        el(TextControl, {
+                            label: __('Content Template', 'germanized-aed-totals'),
+                            value: content,
+                            help: __('Use {total} to display the AED amount', 'germanized-aed-totals'),
+                            onChange: function(value) {
+                                setAttributes({ content: value });
+                            }
+                        }),
+                        el(ToggleControl, {
+                            label: __('Hide if Empty', 'germanized-aed-totals'),
+                            checked: hideIfEmpty,
+                            onChange: function(value) {
+                                setAttributes({ hideIfEmpty: value });
+                            }
+                        }),
+                        el('div', {
+                            style: { marginTop: '16px' }
+                        },
+                            el('label', {
+                                style: { 
+                                    display: 'block',
+                                    marginBottom: '8px',
+                                    fontSize: '11px',
+                                    fontWeight: '500',
+                                    textTransform: 'uppercase',
+                                    color: '#1e1e1e'
+                                }
+                            }, __('Borders', 'germanized-aed-totals')),
+                            borderOptions.map(function(option) {
+                                return el('label', {
+                                    key: option.value,
+                                    style: {
+                                        display: 'block',
+                                        marginBottom: '4px',
+                                        fontSize: '13px'
+                                    }
+                                },
+                                    el('input', {
+                                        type: 'checkbox',
+                                        checked: borders.includes(option.value),
+                                        onChange: function(e) {
+                                            let newBorders;
+                                            if (e.target.checked) {
+                                                newBorders = [...borders, option.value];
+                                            } else {
+                                                newBorders = borders.filter(b => b !== option.value);
+                                            }
+                                            setAttributes({ borders: newBorders });
+                                        },
+                                        style: { marginRight: '8px' }
+                                    }),
+                                    option.label
+                                );
+                            })
+                        )
+                    )
+                ),
+                el('div', {
+                    key: 'edit',
+                    className: className + ' item-total-row' + (borders.includes('top') ? ' has-border-top' : '') + (borders.includes('bottom') ? ' has-border-bottom' : ''),
+                    style: {
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        padding: '8px 12px',
+                        border: '1px dashed #ccc',
+                        backgroundColor: '#f9f9f9',
+                        borderTop: borders.includes('top') ? '2px solid #ddd' : undefined,
+                        borderBottom: borders.includes('bottom') ? '2px solid #ddd' : undefined
+                    }
+                },
+                    el('div', {
+                        className: 'item-total-row-heading',
+                        style: { fontWeight: '600', flex: '1' }
+                    },
+                        el(RichText, {
+                            tagName: 'span',
+                            placeholder: __('Insert heading', 'germanized-aed-totals'),
+                            value: displayHeading,
+                            onChange: function(value) {
+                                setAttributes({ heading: value });
+                            },
+                            allowedFormats: ['core/bold', 'core/italic']
+                        })
+                    ),
+                    el('div', {
+                        className: 'item-total-row-data',
+                        style: { textAlign: 'right', minWidth: '100px' }
+                    },
+                        el(RichText, {
+                            tagName: 'span',
+                            value: content.replace('{total}', previewTotal),
+                            placeholder: content.replace('{total}', previewTotal),
+                            onChange: function(value) {
+                                // Replace preview back to {total} placeholder
+                                const cleanValue = value.replace(previewTotal, '{total}');
+                                setAttributes({ content: cleanValue });
+                            },
+                            allowedFormats: ['core/bold', 'core/italic'],
+                            className: 'sab-price'
+                        })
+                    )
+                ),
+                el('p', {
+                    key: 'help',
+                    style: { 
+                        fontSize: '12px', 
+                        color: '#666', 
+                        fontStyle: 'italic',
+                        marginTop: '8px',
+                        marginBottom: '0'
+                    }
+                },
+                    __('Preview - actual amounts will be calculated from EUR totals', 'germanized-aed-totals')
+                )
+            ];
+        },
 
         save: function() {
             // Dynamic block - rendered on server side
@@ -333,10 +258,6 @@
                         type: 'string',
                         default: 'total'
                     },
-                    borders: {
-                        type: 'array',
-                        default: []
-                    },
                     heading: {
                         type: 'string',
                         default: ''
@@ -344,6 +265,10 @@
                     hideIfEmpty: {
                         type: 'boolean',
                         default: false
+                    },
+                    borders: {
+                        type: 'array',
+                        default: []
                     }
                 },
                 isEligible({ content }) {
