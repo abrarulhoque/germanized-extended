@@ -1,31 +1,14 @@
 /**
  * AED Total Blocks - Editor Styles
- *
- * Minimal styling for block editor preview
  */
 
-.gaed-total-block-preview {
-    padding: 12px;
-    margin: 12px 0;
-    border: 1px solid #dcdcde;
-    background: #fff;
+.gaed-aed-total-note {
+    margin: 12px 0 0;
+    padding: 10px 12px;
+    border: 1px dashed #bfbfbf;
     border-radius: 2px;
-}
-
-.gaed-total-block-preview table {
-    width: 100%;
-    border-collapse: collapse;
-}
-
-.gaed-total-block-preview td {
-    padding: 8px 12px;
-    border-bottom: 1px solid #f0f0f1;
-}
-
-.gaed-total-block-preview td:first-child {
-    font-weight: 600;
-}
-
-.gaed-total-block-preview td:last-child {
-    text-align: right;
+    background: #f9f9f9;
+    font-size: 12px;
+    line-height: 1.4;
+    color: #555d66;
 }

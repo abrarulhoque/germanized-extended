@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Germanized AED Totals
  * Description: Extends WooCommerce Germanized StoreaBill with AED currency totals for invoices
- * Version: 1.0.1
+ * Version: 1.1.0
  * Author: Abrar
  * Author URI: https://abrarulhoque.com
  * Requires at least: 5.4
@@ -19,7 +19,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 // Define plugin constants
-define( 'GAED_VERSION', '1.0.1' );
+define( 'GAED_VERSION', '1.1.0' );
 define( 'GAED_PLUGIN_FILE', __FILE__ );
 define( 'GAED_PLUGIN_PATH', plugin_dir_path( __FILE__ ) );
 define( 'GAED_PLUGIN_URL', plugin_dir_url( __FILE__ ) );

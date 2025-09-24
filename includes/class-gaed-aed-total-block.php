@@ -1,6 +1,6 @@
 <?php
 /**
- * AED Total Block for StoreaBill
+ * AED Total Block enhancements for StoreaBill.
  */
 
 // Prevent direct access
@@ -8,91 +8,85 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-class GAED_AED_Total_Block extends \Vendidero\StoreaBill\Editor\Blocks\DynamicBlock {
+class GAED_AED_Total_Block extends \Vendidero\StoreaBill\Editor\Blocks\ItemTotalRow {
 
     /**
-     * Block name.
-     *
-     * @var string
+     * Bootstrap filters for AED rendering.
      */
-    protected $block_name = 'aed-total-row';
+    public static function init() {
+        $instance = new self();
 
-    /**
-     * Block namespace.
-     *
-     * @var string
-     */
-    protected $namespace = 'gaed';
-
-    public function get_attributes() {
-        return array(
-            'totalType'         => $this->get_schema_string( 'total' ),
-            'heading'           => $this->get_schema_string( false ),
-            'content'           => $this->get_schema_string( '{total_aed}' ),
-            'borderColor'       => $this->get_schema_string(),
-            'className'         => $this->get_schema_string(),
-            'customBorderColor' => $this->get_schema_string(),
-            'textColor'         => $this->get_schema_string(),
-            'customTextColor'   => $this->get_schema_string(),
-            'fontSize'          => $this->get_schema_string( '' ),
-            'hideIfEmpty'       => $this->get_schema_boolean( false ),
-            'borders'           => array(
-                'type'    => 'array',
-                'default' => array(),
-                'items'   => array(
-                    'type' => 'string',
-                ),
-            ),
-        );
+        add_filter( 'render_block_storeabill/item-total-row', array( $instance, 'maybe_render_aed' ), 20, 2 );
     }
 
     /**
-     * Render the AED total block
+     * Replace default output when the AED variation is used.
      *
-     * @param array  $attributes Block attributes
-     * @param string $content    Block content
-     * @return string Rendered block output
+     * @param string $block_content Original block output.
+     * @param array  $block         Parsed block data.
+     *
+     * @return string
      */
-    public function render( $attributes = array(), $content = '' ) {
+    public function maybe_render_aed( $block_content, $block ) {
+        if ( empty( $block['attrs']['gaedIsAed'] ) ) {
+            return $block_content;
+        }
+
         self::maybe_setup_document();
 
         if ( ! isset( $GLOBALS['document'] ) ) {
-            return $content;
+            return $block_content;
         }
 
-        $document   = $GLOBALS['document'];
-        $attributes = $this->parse_attributes( $attributes );
+        $attributes = $this->parse_attributes( $block['attrs'] );
+        $attributes['gaedIsAed'] = true;
 
-        $total_type = isset( $attributes['totalType'] ) ? $attributes['totalType'] : 'total';
-        $total_type = sab_map_invoice_total_type( $total_type, $document );
+        return $this->render_aed_totals( $attributes );
+    }
+
+    /**
+     * Render the AED totals using StoreaBill templates.
+     *
+     * @param array $attributes Block attributes.
+     *
+     * @return string
+     */
+    protected function render_aed_totals( $attributes ) {
+        /** @var \Vendidero\StoreaBill\Document\Document $document */
+        $document                = $GLOBALS['document'];
+        $attributes['totalType'] = sab_map_invoice_total_type( $attributes['totalType'], $document );
 
         $classes = array_merge( sab_generate_block_classes( $attributes ), array( 'item-total' ) );
         $styles  = sab_generate_block_styles( $attributes );
 
-        $document_totals = $document->get_totals( $total_type );
+        $document_totals = $document->get_totals( $attributes['totalType'] );
 
         if ( empty( $document_totals ) ) {
             return '';
         }
 
         $classes[] = 'sab-item-total-row';
-        $classes[] = 'sab-item-total-row-' . str_replace( '_', '-', $total_type );
+        $classes[] = 'sab-item-total-row-' . str_replace( '_', '-', $attributes['totalType'] );
 
-        foreach ( $attributes['borders'] as $border ) {
+        foreach ( (array) $attributes['borders'] as $border ) {
             $classes[] = 'sab-item-total-row-border-' . $border;
         }
 
         $totals_to_render = array();
 
         foreach ( $document_totals as $total ) {
-            if ( 'nets' === $total_type && 1 === count( $document_totals ) ) {
+            if ( false !== $attributes['heading'] ) {
+                $total->set_label( $attributes['heading'] );
+            }
+
+            if ( 'nets' === $attributes['totalType'] && 1 === count( $document_totals ) ) {
                 $label = sab_remove_placeholder_tax_rate( $total->get_label() );
                 $total->set_label( $label );
             }
 
-            if ( 'fee' === $total_type && $total->get_total() < 0 ) {
+            if ( 'fee' === $attributes['totalType'] && $total->get_total() < 0 ) {
                 $total->set_label( _x( 'Discount', 'storeabill-core', 'woocommerce-germanized-pro' ) );
-            } elseif ( 'fees' === $total_type && $total->get_total() < 0 ) {
+            } elseif ( 'fees' === $attributes['totalType'] && $total->get_total() < 0 ) {
                 $total->set_label( _x( 'Discount: %s', 'storeabill-core', 'woocommerce-germanized-pro' ) );
             }
 
@@ -107,10 +101,10 @@ class GAED_AED_Total_Block extends \Vendidero\StoreaBill\Editor\Blocks\DynamicBl
             return '';
         }
 
-        $total_content = $attributes['content'];
-        $content       = '';
-        $count         = 0;
-        $total_count   = count( $totals_to_render );
+        $content     = '';
+        $count       = 0;
+        $total_count = count( $totals_to_render );
+        $template    = ! empty( $attributes['content'] ) ? $attributes['content'] : '{total_aed}';
 
         foreach ( $totals_to_render as $total ) {
             ++$count;
@@ -127,30 +121,19 @@ class GAED_AED_Total_Block extends \Vendidero\StoreaBill\Editor\Blocks\DynamicBl
 
             \Vendidero\StoreaBill\Package::setup_document_total( $total );
 
-            $base_heading = ( false !== $attributes['heading'] && '' !== $attributes['heading'] )
-                ? $attributes['heading']
-                : $total->get_label();
-
-            $heading = sprintf( 'AED %s', $base_heading );
-
-            $eur_amount    = $total->get_total();
-            $aed_amount    = GAED_Currency_Converter::convert_eur_to_aed( $eur_amount );
-            $formatted_aed = GAED_Currency_Converter::format_aed_amount( $aed_amount );
-
-            $formatted_total = str_replace( '{total_aed}', $formatted_aed, $total_content );
-            $formatted_total = str_replace( '{total}', $formatted_aed, $formatted_total );
-
             $row_classes = array_merge(
                 $classes,
-                sab_get_html_loop_classes( 'sab-item-total-row', $total_count, $count )
+                sab_get_html_loop_classes( 'sab-item-total-row', isset( $attributes['renderTotal'] ) ? $attributes['renderTotal'] : 1, $count )
             );
+
+            $formatted_total = $this->format_aed_total( $template, $total );
 
             $content .= sab_do_shortcode(
                 sab_get_template_html(
                     'blocks/item-totals/total.php',
                     array(
                         'total'           => $total,
-                        'formatted_label' => $heading,
+                        'formatted_label' => $total->get_formatted_label(),
                         'formatted_total' => $formatted_total,
                         'classes'         => $row_classes,
                         'styles'          => $styles,
@@ -162,21 +145,28 @@ class GAED_AED_Total_Block extends \Vendidero\StoreaBill\Editor\Blocks\DynamicBl
         return $content;
     }
 
-
     /**
-     * Register the block type
+     * Replace placeholders with AED and EUR amounts.
+     *
+     * @param string                                       $template Template string.
+     * @param \Vendidero\StoreaBill\Interfaces\Summable $total    Total object instance.
+     *
+     * @return string
      */
-    public function register_type() {
-        if ( function_exists( 'register_block_type' ) ) {
-            register_block_type(
-                $this->namespace . '/' . $this->block_name,
-                array(
-                    'render_callback' => array( $this, 'render' ),
-                    'attributes'      => $this->get_attributes(),
-                    'category'        => 'storeabill',
-                    'supports'        => array(),
-                )
-            );
-        }
+    protected function format_aed_total( $template, $total ) {
+        $eur_amount    = floatval( $total->get_total() );
+        $formatted_eur = $total->get_formatted_total();
+
+        $aed_amount    = GAED_Currency_Converter::convert_eur_to_aed( $eur_amount );
+        $formatted_aed = GAED_Currency_Converter::format_aed_amount( $aed_amount );
+
+        return strtr(
+            $template,
+            array(
+                '{total_aed}' => $formatted_aed,
+                '{total_eur}' => $formatted_eur,
+                '{total}'     => $formatted_aed,
+            )
+        );
     }
 }
