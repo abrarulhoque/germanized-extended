@@ -14,6 +14,26 @@
     font-weight: 600;
 }
 
+.sab-price--aed {
+    font-weight: 400;
+    margin-left: 0.45em;
+    color: #6c757d;
+    white-space: nowrap;
+    display: inline-block;
+}
+
+.gaed-line-item-aed {
+    display: block;
+    margin-top: 2px;
+    font-size: 85%;
+}
+
+.gaed-payment-method {
+    margin-top: 8px;
+    font-size: 90%;
+    color: #6c757d;
+}
+
 /* Ensure proper table layout */
 .sab-item-totals-wrapper {
     width: 100%;

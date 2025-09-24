@@ -40,7 +40,6 @@ class GAED_Main {
     private static function includes() {
         require_once GAED_PLUGIN_PATH . 'includes/class-gaed-currency-converter.php';
         require_once GAED_PLUGIN_PATH . 'includes/class-gaed-storeabill-integration.php';
-        require_once GAED_PLUGIN_PATH . 'includes/class-gaed-aed-total-block.php';
     }
 
     /**
@@ -64,6 +63,21 @@ class GAED_Main {
         register_setting( 'gaed_settings', 'gaed_attribution_text' );
         register_setting( 'gaed_settings', 'gaed_last_update' );
         register_setting( 'gaed_settings', 'gaed_exchange_rate' );
+        register_setting( 'gaed_settings', 'gaed_show_totals_aed', array(
+            'type'              => 'boolean',
+            'default'           => true,
+            'sanitize_callback' => array( __CLASS__, 'sanitize_checkbox' ),
+        ) );
+        register_setting( 'gaed_settings', 'gaed_show_line_item_aed', array(
+            'type'              => 'boolean',
+            'default'           => true,
+            'sanitize_callback' => array( __CLASS__, 'sanitize_checkbox' ),
+        ) );
+        register_setting( 'gaed_settings', 'gaed_show_payment_method', array(
+            'type'              => 'boolean',
+            'default'           => true,
+            'sanitize_callback' => array( __CLASS__, 'sanitize_checkbox' ),
+        ) );
 
         add_settings_section(
             'gaed_general',
@@ -87,6 +101,52 @@ class GAED_Main {
             'gaed_settings',
             'gaed_general'
         );
+
+        add_settings_field(
+            'gaed_show_totals_aed',
+            __( 'Totals Display', 'germanized-aed-totals' ),
+            array( __CLASS__, 'checkbox_field' ),
+            'gaed_settings',
+            'gaed_general',
+            array(
+                'option' => 'gaed_show_totals_aed',
+                'label'  => __( 'Show AED amounts alongside totals', 'germanized-aed-totals' ),
+                'default'=> true,
+            )
+        );
+
+        add_settings_field(
+            'gaed_show_line_item_aed',
+            __( 'Line Items', 'germanized-aed-totals' ),
+            array( __CLASS__, 'checkbox_field' ),
+            'gaed_settings',
+            'gaed_general',
+            array(
+                'option' => 'gaed_show_line_item_aed',
+                'label'  => __( 'Show AED amounts for each line item', 'germanized-aed-totals' ),
+                'default'=> true,
+            )
+        );
+
+        add_settings_field(
+            'gaed_show_payment_method',
+            __( 'Payment Method Notice', 'germanized-aed-totals' ),
+            array( __CLASS__, 'checkbox_field' ),
+            'gaed_settings',
+            'gaed_general',
+            array(
+                'option' => 'gaed_show_payment_method',
+                'label'  => __( 'Show payment method notice below totals', 'germanized-aed-totals' ),
+                'default'=> true,
+            )
+        );
+    }
+
+    /**
+     * Sanitize checkbox values to 1/0.
+     */
+    public static function sanitize_checkbox( $value ) {
+        return ! empty( $value ) ? 1 : 0;
     }
 
     /**
@@ -164,5 +224,27 @@ class GAED_Main {
             echo __( 'Never updated', 'germanized-aed-totals' );
         }
         echo '</p>';
+    }
+
+    /**
+     * Generic checkbox renderer.
+     *
+     * @param array $args Field arguments.
+     */
+    public static function checkbox_field( $args ) {
+        $option  = isset( $args['option'] ) ? $args['option'] : '';
+        $label   = isset( $args['label'] ) ? $args['label'] : '';
+        $default = isset( $args['default'] ) ? (bool) $args['default'] : false;
+
+        if ( empty( $option ) ) {
+            return;
+        }
+
+        $value = get_option( $option, $default ? 1 : 0 );
+
+        echo '<label>';
+        echo '<input type="checkbox" name="' . esc_attr( $option ) . '" value="1" ' . checked( $value, 1, false ) . ' /> ';
+        echo esc_html( $label );
+        echo '</label>';
     }
 }

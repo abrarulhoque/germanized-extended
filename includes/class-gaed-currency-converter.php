@@ -104,10 +104,22 @@ class GAED_Currency_Converter {
      */
     public static function format_aed_amount( $aed_amount ) {
         if ( function_exists( 'wc_price' ) ) {
-            return wc_price( $aed_amount, array( 'currency' => 'AED' ) );
+            $formatted = wc_price( $aed_amount, array( 'currency' => 'AED' ) );
+            $symbol    = function_exists( 'get_woocommerce_currency_symbol' ) ? get_woocommerce_currency_symbol( 'AED' ) : '';
+
+            if ( $symbol ) {
+                $formatted = str_replace( $symbol, 'AED', $formatted );
+            }
+
+            return $formatted;
         }
 
-        return 'AED ' . number_format( $aed_amount, 2, '.', ',' );
+        $decimals        = function_exists( 'wc_get_price_decimals' ) ? wc_get_price_decimals() : 2;
+        $decimal_sep     = function_exists( 'wc_get_price_decimal_separator' ) ? wc_get_price_decimal_separator() : '.';
+        $thousand_sep    = function_exists( 'wc_get_price_thousand_separator' ) ? wc_get_price_thousand_separator() : ',';
+        $formatted_value = number_format( (float) $aed_amount, $decimals, $decimal_sep, $thousand_sep );
+
+        return 'AED ' . $formatted_value;
     }
 
     /**
