@@ -1,12 +1,70 @@
 /**
  * AED Total Blocks - Editor Styles
+ * Matches Germanized's item-total-row editor styling
  */
 
+.wp-block[data-type="gaed/aed-total-row"] {
+    margin: 0;
+
+    .wp-block-gaed-aed-total-row {
+        display: flex;
+        justify-content: flex-end;
+        border-color: #dcdcde;
+        border-style: none !important;
+
+        .item-total-row-heading, .item-total-row-data {
+            padding: 8px 12px;
+            text-align: right;
+            border-style: solid;
+            border-width: 0;
+            border-color: inherit;
+
+            &.item-total-row-heading {
+                min-width: 12%;
+                max-width: 40% !important;
+            }
+
+            &.item-total-row-data {
+                flex-basis: 100px;
+            }
+        }
+
+        &.has-border-top {
+            .item-total-row-heading, .item-total-row-data {
+                border-top-width: 1px;
+            }
+        }
+        
+        &.has-border-bottom {
+            .item-total-row-heading, .item-total-row-data {
+                border-bottom-width: 1px;
+            }
+        }
+    }
+}
+
+/* Dense layout support */
+.has-dense-layout {
+    .wp-block[data-type="gaed/aed-total-row"] {
+        .wp-block-gaed-aed-total-row {
+            .item-total-row-heading, .item-total-row-data {
+                padding: 4px 8px;
+
+                &.item-total-row-data {
+                    padding-right: 8px;
+                }
+            }
+        }
+    }
+}
+
+/* Block preview styling */
 .gaed-total-block-preview {
     padding: 8px;
     margin: 8px 0;
     border: 1px solid #dcdcde;
     background: #fff;
+    border-radius: 2px;
 }
 
 .gaed-total-block-preview table {
@@ -20,4 +78,35 @@
 
 .gaed-total-block-preview td:last-child {
     text-align: right;
+}
+
+/* Placeholder content styling */
+.placeholder-content {
+    opacity: 0.7;
+    font-style: italic;
+}
+
+.editor-placeholder {
+    color: #757575;
+}
+
+/* Tooltip styling */
+.sab-tooltip {
+    position: relative;
+    cursor: help;
+}
+
+.sab-tooltip:hover:after {
+    content: attr(data-tooltip);
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #333;
+    color: white;
+    padding: 4px 8px;
+    border-radius: 3px;
+    font-size: 12px;
+    white-space: nowrap;
+    z-index: 1000;
 }

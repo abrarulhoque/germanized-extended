@@ -1,4 +1,29 @@
 /**
- * AED totals inherit StoreaBill styling.
- * This file is intentionally minimal.
+ * AED Total Blocks - Frontend Styles
+ * Uses Germanized's standard item total styling
+ * This file is minimal as we rely on StoreaBill's built-in styling
  */
+
+/* Ensure AED totals inherit standard StoreaBill item total styling */
+.sab-item-totals .sab-item-total-row {
+    /* All styling is inherited from StoreaBill's standard classes */
+}
+
+/* Optional: Custom styling for AED-specific elements if needed */
+.sab-item-total-row .sab-price {
+    font-weight: 600;
+}
+
+/* Ensure proper table layout */
+.sab-item-totals-wrapper {
+    width: 100%;
+    table-layout: fixed;
+    border-collapse: collapse;
+}
+
+/* Responsive adjustments */
+@media print {
+    .sab-item-total-row {
+        page-break-inside: avoid;
+    }
+}

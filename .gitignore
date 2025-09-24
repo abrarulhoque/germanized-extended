@@ -1,0 +1,20 @@
+# WordPress core files
+wp-config.php
+wp-content/uploads/
+wp-content/cache/
+wp-content/upgrade/
+
+# Plugin dependencies (not part of our plugin)
+woocommerce-germanized/
+woocommerce-germanized-pro/
+woocommerce-germanized-pro
+
+# Development files
+node_modules/
+.DS_Store
+.vscode/
+*.log
+
+# Build files
+build/
+dist/

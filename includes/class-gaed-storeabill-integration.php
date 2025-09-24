@@ -55,7 +55,7 @@ class GAED_StoreaBill_Integration {
         wp_register_script(
             'gaed-blocks',
             GAED_PLUGIN_URL . 'assets/js/blocks.js',
-            array( 'wp-blocks', 'wp-element', 'wp-components', 'wp-i18n', 'wp-block-editor' ),
+            array( 'wp-blocks', 'wp-element', 'wp-components', 'wp-i18n', 'wp-block-editor', 'wp-compose', 'wp-data' ),
             GAED_VERSION,
             true
         );

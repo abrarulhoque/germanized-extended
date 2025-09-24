@@ -24,19 +24,33 @@ class GAED_AED_Total_Block extends \Vendidero\StoreaBill\Editor\Blocks\DynamicBl
      */
     protected $namespace = 'gaed';
 
+    public function get_available_shortcodes() {
+        return array(
+            array(
+                'title'     => _x( 'Tax Rate', 'storeabill-core', 'woocommerce-germanized-pro' ),
+                'shortcode' => 'document_total?data=rate&total_type=taxes',
+            ),
+        );
+    }
+
     public function get_attributes() {
         return array(
-            'totalType'         => $this->get_schema_string( 'total' ),
-            'heading'           => $this->get_schema_string( false ),
-            'content'           => $this->get_schema_string( '{total_aed}' ),
-            'borderColor'       => $this->get_schema_string(),
-            'className'         => $this->get_schema_string(),
-            'customBorderColor' => $this->get_schema_string(),
-            'textColor'         => $this->get_schema_string(),
-            'customTextColor'   => $this->get_schema_string(),
-            'fontSize'          => $this->get_schema_string( '' ),
-            'hideIfEmpty'       => $this->get_schema_boolean( false ),
-            'borders'           => array(
+            'totalType'             => $this->get_schema_string( 'total' ),
+            'heading'               => $this->get_schema_string( false ),
+            'content'               => $this->get_schema_string( '{total}' ),
+            'borderColor'           => $this->get_schema_string(),
+            'className'             => $this->get_schema_string(),
+            'customBorderColor'     => $this->get_schema_string(),
+            'backgroundColor'       => $this->get_schema_string(),
+            'customBackgroundColor' => $this->get_schema_string(),
+            'textColor'             => $this->get_schema_string(),
+            'customTextColor'       => $this->get_schema_string(),
+            'fontSize'              => $this->get_schema_string( '' ),
+            'customFontSize'        => $this->get_schema_string(),
+            'hideIfEmpty'           => $this->get_schema_boolean( false ),
+            'renderNumber'          => $this->get_schema_number( 1 ),
+            'renderTotal'           => $this->get_schema_number( 1 ),
+            'borders'               => array(
                 'type'    => 'array',
                 'default' => array(),
                 'items'   => array(
@@ -60,145 +74,109 @@ class GAED_AED_Total_Block extends \Vendidero\StoreaBill\Editor\Blocks\DynamicBl
             return $content;
         }
 
-        $document   = $GLOBALS['document'];
-        $attributes = $this->parse_attributes( $attributes );
-
-        $total_type = isset( $attributes['totalType'] ) ? $attributes['totalType'] : 'total';
-        $total_type = sab_map_invoice_total_type( $total_type, $document );
+        /**
+         * @var \Vendidero\StoreaBill\Document\Document $document
+         */
+        $document                = $GLOBALS['document'];
+        $attributes              = $this->parse_attributes( $attributes );
+        $attributes['totalType'] = sab_map_invoice_total_type( $attributes['totalType'], $document );
 
         $classes = array_merge( sab_generate_block_classes( $attributes ), array( 'item-total' ) );
         $styles  = sab_generate_block_styles( $attributes );
 
-        $document_totals = $document->get_totals( $total_type );
+        $document_totals = $document->get_totals( $attributes['totalType'] );
 
-        if ( empty( $document_totals ) ) {
-            return '';
-        }
-
-        $classes[] = 'sab-item-total-row';
-        $classes[] = 'sab-aed-total-row';
-        $classes[] = 'sab-item-total-row-' . str_replace( '_', '-', $total_type );
+        $total_content = $attributes['content'];
+        $classes[]     = 'sab-item-total-row';
+        $classes[]     = 'sab-item-total-row-' . str_replace( '_', '-', $attributes['totalType'] );
 
         foreach ( $attributes['borders'] as $border ) {
             $classes[] = 'sab-item-total-row-border-' . $border;
         }
 
-        $totals_to_render = array();
+        if ( ! empty( $document_totals ) ) {
+            $count   = 0;
+            $content = '';
 
-        foreach ( $document_totals as $total ) {
-            if ( false !== $attributes['heading'] && '' !== $attributes['heading'] ) {
-                $total->set_label( $attributes['heading'] );
-            }
-
-            if ( 'nets' === $total_type && 1 === count( $document_totals ) ) {
-                $label = sab_remove_placeholder_tax_rate( $total->get_label() );
-                $total->set_label( $label );
-            }
-
-            if ( 'fee' === $total_type && $total->get_total() < 0 ) {
-                $total->set_label( _x( 'Discount', 'storeabill-core', 'woocommerce-germanized-pro' ) );
-            } elseif ( 'fees' === $total_type && $total->get_total() < 0 ) {
-                $total->set_label( _x( 'Discount: %s', 'storeabill-core', 'woocommerce-germanized-pro' ) );
-            }
-
-            if ( ( true === $attributes['hideIfEmpty'] && empty( $total->get_total() ) ) || apply_filters( "storeabill_hide_{$document->get_type()}_total_row", false, $attributes, $total, $document ) ) {
-                continue;
-            }
-
-            $totals_to_render[] = $total;
-        }
-
-        if ( empty( $totals_to_render ) ) {
-            return '';
-        }
-
-        $total_content = $attributes['content'];
-        $content       = '';
-        $count         = 0;
-        $total_count   = count( $totals_to_render );
-
-        foreach ( $totals_to_render as $total ) {
-            ++$count;
-
-            if ( $count > 1 ) {
-                $classes = array_diff( $classes, array( 'sab-item-total-row-border-top', 'has-border-top' ) );
-
-                if ( $count < $total_count ) {
-                    $classes = array_diff( $classes, array( 'sab-item-total-row-border-bottom', 'has-border-bottom' ) );
+            foreach ( $document_totals as $total ) {
+                if ( false !== $attributes['heading'] ) {
+                    $total->set_label( $attributes['heading'] );
                 }
-            }
 
-            do_action( "storeabill_setup_{$document->get_type()}_total_row", $total, $document );
+                /**
+                 * Remove the actual net tax rate in case only one tax rate is included.
+                 */
+                if ( 'nets' === $attributes['totalType'] && 1 === count( $document_totals ) ) {
+                    $label = sab_remove_placeholder_tax_rate( $total->get_label() );
+                    $total->set_label( $label );
+                }
 
-            \Vendidero\StoreaBill\Package::setup_document_total( $total );
+                /**
+                 * In case a fee has a negative total amount - force a discount label.
+                 */
+                if ( 'fee' === $attributes['totalType'] && $total->get_total() < 0 ) {
+                    $total->set_label( _x( 'Discount', 'storeabill-core', 'woocommerce-germanized-pro' ) );
+                } elseif ( 'fees' === $attributes['totalType'] && $total->get_total() < 0 ) {
+                    $total->set_label( _x( 'Discount: %s', 'storeabill-core', 'woocommerce-germanized-pro' ) );
+                }
 
-            $heading = $attributes['heading'];
+                /**
+                 * Skip for empty amounts.
+                 */
+                if ( ( true === $attributes['hideIfEmpty'] && empty( $total->get_total() ) ) || apply_filters( "storeabill_hide_{$document->get_type()}_total_row", false, $attributes, $total, $document ) ) {
+                    continue;
+                }
 
-            if ( false === $heading || '' === $heading ) {
-                $heading = $total->get_label() . ' (AED)';
-            }
+                ++$count;
 
-            $eur_amount    = $total->get_total();
-            $aed_amount    = GAED_Currency_Converter::convert_eur_to_aed( $eur_amount );
-            $formatted_aed = GAED_Currency_Converter::format_aed_amount( $aed_amount );
+                /**
+                 * Remove border top styles
+                 */
+                if ( $count > 1 ) {
+                    $classes = array_diff( $classes, array( 'sab-item-total-row-border-top', 'has-border-top' ) );
 
-            $formatted_total = str_replace(
-                array( '{total_aed}', '{total}' ),
-                $formatted_aed,
-                $total_content
-            );
+                    if ( $count < count( $document_totals ) ) {
+                        $classes = array_diff( $classes, array( 'sab-item-total-row-border-bottom', 'has-border-bottom' ) );
+                    }
+                }
 
-            $row_classes = array_merge(
-                $classes,
-                sab_get_html_loop_classes( 'sab-item-total-row', $total_count, $count )
-            );
+                do_action( "storeabill_setup_{$document->get_type()}_total_row", $total, $document );
 
-            $content .= sab_do_shortcode(
-                $this->get_total_template_html(
+                $total_classes = array_merge( $classes, sab_get_html_loop_classes( 'sab-item-total-row', $attributes['renderTotal'], $count ) );
+                \Vendidero\StoreaBill\Package::setup_document_total( $total );
+
+                // Convert EUR amount to AED
+                $eur_amount    = $total->get_total();
+                $aed_amount    = GAED_Currency_Converter::convert_eur_to_aed( $eur_amount );
+                $formatted_aed = GAED_Currency_Converter::format_aed_amount( $aed_amount );
+
+                // Replace {total} with AED amount in content
+                $aed_total_content = str_replace( '{total}', $formatted_aed, $total_content );
+
+                // Modify label to show AED
+                $aed_label = $total->get_formatted_label();
+                if ( false === $attributes['heading'] || '' === $attributes['heading'] ) {
+                    $aed_label .= ' (AED)';
+                }
+
+                $total_html_content = sab_get_template_html(
+                    'blocks/item-totals/total.php',
                     array(
                         'total'           => $total,
-                        'formatted_label' => $heading,
-                        'formatted_total' => $formatted_total,
-                        'classes'         => $row_classes,
+                        'formatted_label' => $aed_label,
+                        'formatted_total' => $aed_total_content,
+                        'classes'         => $total_classes,
                         'styles'          => $styles,
                     )
-                )
-            );
+                );
+
+                $content .= sab_do_shortcode( $total_html_content );
+            }
         }
 
         return $content;
     }
 
-    /**
-     * Get the template HTML for a total row
-     *
-     * @param array $args Template arguments
-     * @return string HTML content
-     */
-    private function get_total_template_html( $args ) {
-        $defaults = array(
-            'total'           => null,
-            'formatted_label' => '',
-            'formatted_total' => '',
-            'classes'         => array(),
-            'styles'          => array(),
-        );
-
-        $args = wp_parse_args( $args, $defaults );
-
-        ob_start();
-        ?>
-        <tr class="<?php echo esc_attr( implode( ' ', $args['classes'] ) ); ?>" style="<?php echo esc_attr( sab_print_styles( $args['styles'], false ) ); ?>">
-            <td class="sab-item-total-heading" style="<?php echo esc_attr( sab_print_styles( $args['styles'], false ) ); ?>">
-                <?php echo wp_kses_post( $args['formatted_label'] ); ?>
-            </td>
-            <td class="sab-item-total-data sab-aed-total-data" style="<?php echo esc_attr( sab_print_styles( $args['styles'], false ) ); ?>">
-                <span class="sab-price sab-aed-price"><?php echo wp_kses_post( $args['formatted_total'] ); ?></span>
-            </td>
-        </tr>
-        <?php
-        return ob_get_clean();
-    }
 
     /**
      * Register the block type
